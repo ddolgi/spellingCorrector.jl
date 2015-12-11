@@ -1,9 +1,7 @@
 #!/usr/local/bin/julia
-using Json2
 using DataStructures:DefaultDict
-typealias String AbstractString
 
-words(text::String) = matchall(r"[a-z]+", lowercase(text))
+words(text::AbstractString) = matchall(r"[a-z]+", lowercase(text))
 
 function train(features)
 	model = DefaultDict(1)
@@ -17,7 +15,7 @@ NWORDS = train(words(readall(open("big.txt"))))
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
-function edits1(word::String)
+function edits1(word::AbstractString)
 	s = [(word[1:i], word[i+1:end]) for i in 0:length(word)]
 	deletes    = Set(["$a$(b[2:end])" for (a, b) in filter(w->w[2]!="",s)])
 	transposes = Set(["$a$(b[2])$(b[1])$(b[3:end])"	for (a, b) in filter(w->length(w[2])>1,s)])
@@ -38,34 +36,9 @@ end
 known(words) = Set(filter(w->haskey(NWORDS, w), words))
 
 function correct(word)
-	maxFreq = 0
-	maxWord = ""
-	candidates = Set()
-
-	w = known([word])
-	if !isempty(w)
-		candidates = w
-	else
-		w = known(edits1(word))
-		if !isempty(w)
-			candidates = w
-		else
-			w = known_edits2(word)
-			if !isempty(w)
-				candidates = w
-			else
-				return word
-			end
-		end
-	end
-
-	for	w in candidates
-		if NWORDS[w] > maxFreq
-			maxFreq = NWORDS[w]
-			maxWord = w
-		end
-	end
-	maxWord
+	(w = known([word])) != Set() || (w = known(edits1(word))) != Set() || (w = known_edits2(word)) != Set() || (w = [word])
+	candidates = [ c for c in w ]
+	candidates[indmax([ NWORDS[c] for c in candidates ])]
 end
 
 
@@ -74,8 +47,7 @@ function spelltest(tests, bias=Union{}, verbose=false)
 	n, bad, unknown = 0, 0, 0
 #if bias:
 #for target in tests: NWORDS[target] += bias
-	for target in getkeys(tests)
-		wrongs = tests[target]
+	for (target, wrongs) in tests
 		for wrong in split(wrongs)
 			n += 1
 			w = correct(wrong)
@@ -91,7 +63,7 @@ function spelltest(tests, bias=Union{}, verbose=false)
 				"unknown"=>unknown)
 end
 
-using Json2
+using JSON
 #@time println(correct("xtas"))
-#@time println(spelltest(Json2.parse(readall(open("test1.json","r")))))
-@time println(spelltest(Json2.parse(readall(open("test2.json","r")))))
+@time println(spelltest(JSON.parse(readall(open("test1.json","r")))))
+#@time println(spelltest(Json2.parse(readall(open("test2.json","r")))))
