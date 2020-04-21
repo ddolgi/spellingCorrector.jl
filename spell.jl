@@ -8,11 +8,16 @@ N = sum(values(WORDS))
 P(word) = get(WORDS, word, 0) / N
 
 function candidates(word)
-	(w = known([word])) != [] || (w = known(edits1(word))) != [] || (w = known(edits2(word))) != [] || (w = [word])
-	[ (P(c), c) for c in w ]
+	(w = known([word])) != [] && return w
+	(w = known(edits1(word))) != [] && return w
+	(w = known(edits2(word))) != [] && return w
+	return [word]
 end
 
-correct(word) =	maximum(candidates(word))[2]
+function correct(word)
+	cands = candidates(word)
+	return cands[argmax(map(P, cands))]
+end
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 function edits1(word)
@@ -21,12 +26,13 @@ function edits1(word)
 	transposes = ["$a$(b[2])$(b[1])$(b[3:end])" for (a, b) in s[1:end-2]]
 	replaces   = ["$a$c$(b[2:end])" for (a, b) in s[1:end-1] for c in alphabet]
 	inserts    = ["$a$c$b" for (a, b) in s for c in alphabet]
-	vcat(deletes, transposes, replaces, inserts)
+	return vcat(deletes, transposes, replaces, inserts)
 end
 
 edits2(word) = Set(e2 for e1 in edits1(word) for e2 in edits1(e1))
 
 known(words) = [w for w in words if haskey(WORDS, w)]
+
 
 
 #################### TEST 
@@ -50,7 +56,7 @@ function spelltest(tests, bias=Union{}, verbose=false)
 				"unknown"=>unknown)
 end
 
-# @time println(correct("xtas"))
+@time println(correct("xtas"))
 using JSON
 @time println(spelltest(JSON.parse(open("test1.json","r"))))
 @time println(spelltest(JSON.parse(open("test2.json","r"))))
