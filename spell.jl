@@ -1,7 +1,7 @@
 #!/usr/local/bin/julia
 using DataStructures:DefaultDict
 
-words(text::AbstractString) = matchall(r"[a-z]+", lowercase(text))
+words(text) = collect(e.match for e in eachmatch(r"[a-z]+", lowercase(text)))
 
 function train(features)
 	model = DefaultDict(1)
@@ -11,11 +11,11 @@ function train(features)
 	model
 end
 
-NWORDS = train(words(readall(open("big.txt"))))
+NWORDS = train(words(String(read(open("big.txt")))))
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
-function edits1(word::AbstractString)
+function edits1(word)
 	s = [(word[1:i], word[i+1:end]) for i in 0:length(word)]
 	deletes    = Set(["$a$(b[2:end])" for (a, b) in filter(w->w[2]!="",s)])
 	transposes = Set(["$a$(b[2])$(b[1])$(b[3:end])"	for (a, b) in filter(w->length(w[2])>1,s)])
@@ -38,7 +38,7 @@ known(words) = Set(filter(w->haskey(NWORDS, w), words))
 function correct(word)
 	(w = known([word])) != Set() || (w = known(edits1(word))) != Set() || (w = known_edits2(word)) != Set() || (w = [word])
 	candidates = [ c for c in w ]
-	candidates[indmax([ NWORDS[c] for c in candidates ])]
+	candidates[findmax([ NWORDS[c] for c in candidates ])[2]]
 end
 
 
@@ -59,11 +59,11 @@ function spelltest(tests, bias=Union{}, verbose=false)
 			end
 		end
 	end
-	return Dict("bad"=>bad, "n"=>n, "bias"=>bias, "pct"=>floor(Int, 100. - 100.*bad/n),
+	return Dict("bad"=>bad, "n"=>n, "bias"=>bias, "pct"=>floor(Int, 100.0 - 100.0*bad/n),
 				"unknown"=>unknown)
 end
 
 using JSON
-#@time println(correct("xtas"))
-@time println(spelltest(JSON.parse(readall(open("test1.json","r")))))
-#@time println(spelltest(Json2.parse(readall(open("test2.json","r")))))
+@time println(correct("xtas"))
+# @time println(spelltest(JSON.parse(open("test1.json","r"))))
+@time println(spelltest(JSON.parse(open("test2.json","r"))))
