@@ -1,45 +1,34 @@
 #!/usr/local/bin/julia
-using DataStructures:DefaultDict
+import StatsBase: countmap
 
 words(text) = collect(e.match for e in eachmatch(r"[a-z]+", lowercase(text)))
 
-function train(features)
-	model = DefaultDict(1)
-	for f in features
-		model[f] += 1
-	end
-	model
+NWORDS = countmap(words(String(read(open("big.txt")))))
+
+function candidates(word)
+	(w = known([word])) != Set() || (w = known(edits1(word))) != Set() || (w = known(edits2(word))) != Set() || (w = [word])
+	[ c for c in w ]
+	# return w
 end
 
-NWORDS = train(words(String(read(open("big.txt")))))
+function correct(word)
+	cands = candidates(word)
+	cands[argmax([ NWORDS[c] for c in cands ])]
+end
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
-
 function edits1(word)
 	s = [(word[1:i], word[i+1:end]) for i in 0:length(word)]
-	deletes    = Set(["$a$(b[2:end])" for (a, b) in filter(w->w[2]!="",s)])
-	transposes = Set(["$a$(b[2])$(b[1])$(b[3:end])"	for (a, b) in filter(w->length(w[2])>1,s)])
-	replaces   = Set(["$a$c$(b[2:end])"	for (a, b) in filter(w->w[2]!="",s), c in alphabet])
-	inserts    = Set(["$a$c$b" for (a, b) in s, c in alphabet])
+	deletes    = Set("$a$(b[2:end])" for (a, b) in s[1:end-1])
+	transposes = Set("$a$(b[2])$(b[1])$(b[3:end])" for (a, b) in s[1:end-2])
+	replaces   = Set("$a$c$(b[2:end])" for (a, b) in s[1:end-1], c in alphabet)
+	inserts    = Set("$a$c$b" for (a, b) in s, c in alphabet)
 	union(deletes, transposes, replaces, inserts)
 end
 
-function known_edits2(word)
-	ret = Set()
-	for e1 in edits1(word)
-		e2 = edits1(e1)
-		union!(ret, filter(w->haskey(NWORDS, w), e2))
-	end
-	ret
-end
+edits2(word) = [e2 for e1 in edits1(word) for e2 in edits1(e1)]
 
-known(words) = Set(filter(w->haskey(NWORDS, w), words))
-
-function correct(word)
-	(w = known([word])) != Set() || (w = known(edits1(word))) != Set() || (w = known_edits2(word)) != Set() || (w = [word])
-	candidates = [ c for c in w ]
-	candidates[findmax([ NWORDS[c] for c in candidates ])[2]]
-end
+known(words) = Set(w for w in words if haskey(NWORDS, w))
 
 
 #################### TEST 
@@ -63,7 +52,7 @@ function spelltest(tests, bias=Union{}, verbose=false)
 				"unknown"=>unknown)
 end
 
-using JSON
 @time println(correct("xtas"))
+# using JSON
 # @time println(spelltest(JSON.parse(open("test1.json","r"))))
-@time println(spelltest(JSON.parse(open("test2.json","r"))))
+# @time println(spelltest(JSON.parse(open("test2.json","r"))))
